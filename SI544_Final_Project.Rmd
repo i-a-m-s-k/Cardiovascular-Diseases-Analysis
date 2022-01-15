@@ -1,0 +1,222 @@
+---
+title: "SI 544 Final Project 2021"
+output:
+  html_document:
+    df_print: paged
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+***Load Packages***
+```{r}
+#install.packages("tidyverse")
+library(tidyverse)
+#install.packages("moderndive")
+library(moderndive)
+#install.packages("skimr")
+library(skimr)
+#install.packages("ggplot2")
+library(ggplot2)
+#install.packages("dplyr")
+library(dplyr)
+#install.packages("readr")
+library(readr)
+#install.packages("tidyr")
+library(knitr)
+#install.packages("infer")
+library(infer)
+```
+
+***About the Dataset***
+The National Health Interview Survey (NHIS) has monitored the health of the nation since 1957. This is one of the data sets provided by the National Cardiovascular Disease (CVD) Surveillance System. This data set aims to provide a comprehensive picture of the public health burden of CVDs and associated risk factors in the United States. The data are organized by location (region) and indicator, and they include CVDs (e.g., heart failure) and risk factors (e.g., hypertension). 
+
+Reference: Data Provided by Centers for Disease Control and Prevention, National Center for Chronic Disease Prevention and Health Promotion, Division of Health Disease and Stroke Prevention (DHDSP), National Cardiovascular Disease Surveillance System. https://chronicdata.cdc.gov/Heart-Disease-Stroke-Prevention/Behavioral-Risk-Factor-Surveillance-System-BRFSS-N/ikwk-8git
+Accessed on: 1st December 2021
+
+***Import Data set:***
+```{r}
+CVD_data <- read.csv("C:/Shivangi/Michigan/Courses/Fall 2021/SI 544/Final Project/Behavioral_Risk_Factor_Surveillance_System__BRFSS__-__National_Cardiovascular_Disease_Surveillance_Data.csv")
+```
+
+***About Data Elements and Data Description:***
+<br>Year: year
+<br>LocationAbbr: Location abbreviation
+<br>LocationDesc: Location description
+<br>DataSource: Data source
+<br>PriorityArea1: Priority Area (Million Hearts or None)
+<br>PriorityArea2: Priority Area (ABCS or None)
+<br>PriorityArea3: Priority Area (Healthy People 2020 or None) <br>PriorityArea4: Priority Area(AHA 2020 Goals: Cardiovascular Health Metrics or None)
+<br>Category: Category description
+<br>Topic: Topic description
+<br>Indicator: Indicator description
+<br>Data_Value_Type: Data Value Type (mean,rate,percentage)
+<br>Data_Value_Unit: Data Value Unit (%, rate per 100,000, etc.) <br>Data_Value: Data Value (point estimate)
+<br>Data_Value_Alt: Equal to data value, but formatting is numeric <br>Data_Value_Footnote_Symbol:Symbol that would be used to flag footnotes
+<br>Data_Value_Footnote: Footnote description
+<br>LowConfidenceLimit: 95% confidence interval lower bound <br>HighConfidenceLimit: 95% confidence interval upper bound <br>Break_Out_Category: Break out category description
+<br>Break_Out:	Break out group description
+<br>CategoryId:	Category lookup value
+<br>TopicId:	Topic lookup value
+<br>IndicatorID: Indicator lookup value Data_Value_TypeID:	Data value type lookup value
+<br>BreakOutCategoryId:	Break out category lookup value
+<br>BreakOutId:	Break out group lookup value
+<br>LocationID:	Location lookup value
+<br>Geolocation:Geolocation
+
+***View the Data Set:***
+```{r}
+#Let us first view the data set to get a better idea of the columns and data types of the columns. We can use the head function to inspect the first few rows of the data set.
+View(head(CVD_data))
+#We observe that there are 30 columns in the Cardiovascular Diseases (CVD) data set.
+```
+
+***Clean Data Set/Removing Rows with Missing Values:***
+```{r}
+#We can see that multiple rows contain "na" values, so let us clean our data set or omit the not applicable values.
+CVD_cleaned <- na.omit(CVD_data)
+View(CVD_cleaned)
+```
+
+***Count number of Observations in Data Set:***
+```{r}
+#Let us count the number of rows in the original data set and the cleaned data set.
+CVD_count <- nrow(CVD_data)
+print(CVD_count)
+CVD_cleaned_count <- nrow(CVD_cleaned)
+print(CVD_cleaned_count)
+#Now, we see that the number of rows after removing "na" values has reduced to approximately 80,000. 
+
+```
+
+***Merging a secondary data set:***
+```{r}
+#Let us now merge another data set named as Category Score data frame. This data set contains category scroe in binary format where 1 denotes "cardiovascular diseases" and 0 denotes "risk factors".
+categoryscore_df <- read.csv("CategoryScore_df.csv")
+CVD_merged <- merge(categoryscore_df, CVD_cleaned, by = "Category")
+CVD_merged
+```
+***Selection of columns:***
+```{r}
+#Now that our data frame is cleaned and merged, let us pick a few columns to work with. We will choose Year, LocationAbbr, LocationDesc, Category, Topic and Indicator to work with. Additionally I will be changing the names of the columns LocationAbbr to Location_Abbreviation and LocationDesc to Location_Description for better understanding.
+
+CVD_df <- CVD_merged %>%
+select(Year, LocationAbbr, LocationDesc, Category, Topic, Indicator, Break_Out_Category,Break_Out, Data_Value) %>%
+rename(Location_Abbreviation = LocationAbbr, Location_Description  = LocationDesc)
+glimpse(CVD_df)
+```
+
+
+***Part I: Analyzing Risk Factors associated with CVD:***
+```{r}
+#Wrangle data using filter() function
+riskfactors_category <- CVD_df %>%
+  filter(Category == 'Risk Factors')
+
+#Sorting and grouping the risk factors according to state
+risk_freq <- riskfactors_category %>%
+group_by(Location_Abbreviation) %>%
+summarize(num_riskfactors = n())
+
+risk_freq
+
+#Found out that there are 1570 entries for each state. Picking AZ data set containing the risk factors.
+
+riskfactors_AZ <- riskfactors_category %>%
+  filter(Location_Abbreviation == "AZ")
+riskfactors_AZ
+```
+***Group by topic and indicator columns and Summarize the data set using skim()***
+```{r}
+#The "topic" column tells us the type of risk factor for a particular year and the "indicator" column tells us the indicator of the type of risk factor. 
+#Let us now now group according to the topic and indicator
+by_topic_indicator <- riskfactors_AZ %>%
+group_by(Topic, Indicator) %>%
+summarize(count = n())
+
+View(by_topic_indicator)
+
+#Before we visualize the data set using a histogram, let us summarize the data set
+by_topic_indicator %>% select(Topic, count) %>% skim()
+#We observe that Diabetes has the highest mean value of 155 which leads us to drawing an analysis that diabetes potentially is a risk factor to cardiovascular diseases in Arizona.
+```
+***Visualize using a Histogram***
+```{r}
+#Let us now build a histogram where we can visualize the count of the types of risk factors in Arizona year-wise.
+ggplot(riskfactors_AZ, aes(x = Year)) +
+geom_histogram(binwidth = 1, color = "white") +
+labs(x = "Count",
+y = "Type of Risk Factor",
+title = "Histogram of distribution of various risk factors associated with cardiovascular diseases") +
+facet_wrap(~ Topic, ncol = 3)
+
+#We notice that diabetes has been a constant risk factor over the years in terms of count whereas obesity as a risk factor declined in 2016 and 2017 but rose back again in 2018 to a higher count.
+```
+
+***Part II: Analyzing Types of Cardiovascular Diseases:***
+```{r}
+#Wrangle data using filter() function
+cvd_category <- CVD_df %>%
+  filter(Category == 'Cardiovascular Diseases')
+
+#Sorting and grouping the risk factors according to break_out column which contains age, gender, race and overall factors
+cvd_freq <- cvd_category %>%
+group_by(Break_Out) %>%
+summarize(num_cvd = n())
+
+cvd_freq
+```
+***Visualization through a Barplot***
+```{r}
+ggplot(cvd_freq, aes(x = Break_Out, y = num_cvd)) +
+geom_col(position = "dodge")+
+labs(x = "Age, Gender, Race, Overall", y = "CVD Count", title = "Barplot of Relationship of age, gender, race and overall with CVD count")+
+theme(axis.text.x = element_text(angle = 90, size = 10))
+
+#We can see that on an average, CVD is a disease prevalent in the Non-Hispanic White population and it is non-prevalent or less prevalent in the Non-Hispanic Asian population.  
+
+#It is also evident that CVD does not have much relation to the gender and is equally likely to occur in both the genders.
+```
+
+***Summary of few columns***
+```{r}
+#Let us take a summary of the 75+ age category.
+cvd_summary <- CVD_df %>%
+  filter(Break_Out == "75+")
+View(cvd_summary)
+summary(cvd_summary $ Data_Value)
+#Thus, it can be seen that 33% of the people of 75+ age are likely to develop cardiovascular diseases.  
+```
+
+***Hypothesis Testing:***
+
+```{r}
+heart_attack <- CVD_cleaned %>% filter(Indicator == "Prevalence of stroke among US adults (18+); BRFSS", Break_Out == "Non-Hispanic Black" | Break_Out == "Non-Hispanic White")
+View(heart_attack)
+unique(CVD_cleaned$Indicator)
+
+heart_attack <- heart_attack %>% filter(Break_Out_Category == "Race")
+
+null_distribution_heart <- heart_attack %>%
+specify(formula = Data_Value ~ Break_Out) %>%
+hypothesize(null = "independence") %>%
+generate(reps = 1000, type = "permute") %>%
+calculate(stat = "diff in means", order = c("Non-Hispanic Black", "Non-Hispanic White"))
+null_distribution_heart
+
+heart_diff_means <- heart_attack %>%
+specify(formula = Data_Value ~ Break_Out) %>%
+calculate(stat = "diff in means", order = c("Non-Hispanic Black", "Non-Hispanic White"))
+heart_diff_means
+
+visualize(null_distribution_heart, bins = 10) +
+shade_p_value(obs_stat = heart_diff_means, direction = "both")
+
+null_distribution_heart %>%
+get_p_value(obs_stat = heart_diff_means, direction = "both")
+
+#The obtained p-value is less than threshold. The null hypothesis is that cardiovascular disease is not related to race, hence it is rejected. 
+```
+
+
+
